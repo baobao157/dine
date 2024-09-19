@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吃饭费用记录系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin: 10px 0;
+        }
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+        }
+        .result, .history {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+        }
+        .history-item {
+            margin-bottom: 10px;
+        }
+        .history-item button {
+            margin-left: 10px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>吃饭费用记录系统</h2>
+
+    <label for="totalPrice">总费用：</label>
+    <input type="number" id="totalPrice" placeholder="请输入总费用">
+
+    <label>参与者：</label>
+    <label><input type="checkbox" id="baozongming" checked> 包宗明</label>
+    <label><input type="checkbox" id="yanghaibo" checked> 阳海波</label>
+    <label><input type="checkbox" id="chengyaoqin" checked> 程瑶钦</label>
+    <label><input type="checkbox" id="shiyinghui" checked> 史颖晖</label>
+
+    <button onclick="calculate()">记录费用</button>
+
+    <div class="result" id="result"></div>
+
+    <button onclick="toggleHistory()">查看/关闭历史记录</button>
+    <div class="history hidden" id="history"></div>
+
+    <button onclick="calculateTotalExpenses()">查看每人总费用</button>
+    <div class="result" id="totalExpenses"></div>
+
+    <button onclick="exportDetails()">导出所有明细</button>
+    <button onclick="exportIndividualDetails('包宗明')">导出包宗明明细</button>
+    <button onclick="exportIndividualDetails('阳海波')">导出阳海波明细</button>
+    <button onclick="exportIndividualDetails('程瑶钦')">导出程瑶钦明细</button>
+    <button onclick="exportIndividualDetails('史颖晖')">导出史颖晖明细</button>
+</div>
+
+<script>
+    // 初始化历史记录
+    window.onload = function() {
+        loadHistory();
+    };
+
+    function calculate() {
+        var totalPrice = parseFloat(document.getElementById("totalPrice").value);
+        if (isNaN(totalPrice) || totalPrice <= 0) {
+            alert("请输入有效的总费用！");
+            return;
+        }
+
+        var participants = [];
+        if (document.getElementById("baozongming").checked) participants.push("包宗明");
+        if (document.getElementById("yanghaibo").checked) participants.push("阳海波");
+        if (document.getElementById("chengyaoqin").checked) participants.push("程瑶钦");
+        if (document.getElementById("shiyinghui").checked) participants.push("史颖晖");
+
+        var numParticipants = participants.length;
+        if (numParticipants === 0) {
+            alert("至少需要一位参与者！");
+            return;
+        }
+
+        var perPersonAmount = totalPrice / numParticipants;
+        var resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = "<strong>每人应付金额：</strong><br>";
+        var record = {
+            date: new Date().toLocaleString(),
+            total: totalPrice,
+            participants: []
+        };
+
+        participants.forEach(function(person) {
+            var amount = perPersonAmount.toFixed(2);
+            record.participants.push({ name: person, amount: amount });
+            resultDiv.innerHTML += person + ": " + amount + " 元<br>";
+        });
+
+        saveRecord(record);
+        loadHistory();
+    }
+
+    function saveRecord(record) {
+        var history = JSON.parse(localStorage.getItem('mealHistory')) || [];
+        history.push(record);
+        localStorage.setItem('mealHistory', JSON.stringify(history));
+    }
+
+    function loadHistory() {
+        var history = JSON.parse(localStorage.getItem('mealHistory')) || [];
+        var historyDiv = document.getElementById('history');
+        historyDiv.innerHTML = '';
+
+        if (history.length === 0) {
+            historyDiv.innerHTML = '暂无记录';
+            return;
+        }
+
+        history.forEach(function(record, index) {
+            var historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            historyItem.innerHTML = "<strong>日期：</strong> " + record.date + "<br>";
+            historyItem.innerHTML += "<strong>总费用：</strong> " + record.total + " 元<br>";
+            historyItem.innerHTML += "<strong>参与者：</strong><br>";
+
+            record.participants.forEach(function(participant) {
+                historyItem.innerHTML += participant.name + ": " + participant.amount + " 元<br>";
+            });
+
+            var deleteButton = document.createElement('button');
+            deleteButton.innerText = '删除';
+            deleteButton.onclick = function() {
+                deleteRecord(index);
+            };
+
+            historyItem.appendChild(deleteButton);
+            historyDiv.appendChild(historyItem);
+        });
+    }
+
+    function deleteRecord(index) {
+        var history = JSON.parse(localStorage.getItem('mealHistory')) || [];
+        history.splice(index, 1);
+        localStorage.setItem('mealHistory', JSON.stringify(history));
+        loadHistory();
+    }
+
+    // 查看和关闭历史记录
+    function toggleHistory() {
+        var historyDiv = document.getElementById("history");
+        if (historyDiv.classList.contains("hidden")) {
+            historyDiv.classList.remove("hidden");
+        } else {
+            historyDiv.classList.add("hidden");
+        }
+    }
+
+    function calculateTotalExpenses() {
+        var history = JSON.parse(localStorage.getItem('mealHistory')) || [];
+        var totals = {
+            '包宗明': 0,
+            '阳海波': 0,
+            '程瑶钦': 0,
+            '史颖晖': 0
+        };
+
+        history.forEach(function(record) {
+            record.participants.forEach(function(participant) {
+                if (totals[participant.name] !== undefined) {
+                    totals[participant.name] += parseFloat(participant.amount);
+                }
+            });
+        });
+
+        var totalExpensesDiv = document.getElementById("totalExpenses");
+        totalExpensesDiv.innerHTML = "<strong>每个人的总费用：</strong><br>";
+        for (var person in totals) {
+            totalExpensesDiv.innerHTML += person + ": " + totals[person].toFixed(2) + " 元<br>";
+        }
+    }
+
+    // 导出所有明细为 txt
+    function exportDetails() {
+        var history = JSON.parse(localStorage.getItem('mealHistory')) || [];
+        var totals = {
+            '包宗明': 0,
+            '阳海波': 0,
+            '程瑶钦': 0,
+            '史颖晖': 0
+        };
+
+        history.forEach(function(record) {
+            record.participants.forEach(function(participant) {
+                if (totals[participant.name] !== undefined) {
+                    totals[participant.name] += parseFloat(participant.amount);
+                }
+            });
+        });
+
+        var textData = "吃饭费用明细\n\n";
+        history.forEach(function(record) {
+            textData += "日期: " + record.date + "\n";
+            textData += "总费用: " + record.total + " 元\n";
+            textData += "参与者:\n";
+            record.participants.forEach(function(participant) {
+                textData += participant.name + ": " + participant.amount + " 元\n";
+            });
+            textData += "\n";
+        });
+
+        textData += "每个人的总费用:\n";
+        for (var person in totals) {
+            textData += person + ": " + totals[person].toFixed(2) + " 元\n";
+        }
+
+        downloadTXT(textData, "meal_details.txt");
+    }
+
+    // 单独导出个人的费用明细为 txt
+    function exportIndividualDetails(personName) {
+        var history = JSON.parse(localStorage.getItem('mealHistory')) || [];
+        var individualHistory = [];
+        var total = 0;
+
+        var textData = personName + " 的费用明细\n\n";
+
+        history.forEach(function(record) {
+            record.participants.forEach(function(participant) {
+                if (participant.name === personName) {
+                    textData += "日期: " + record.date + "\n";
+                    textData += "费用: " + participant.amount + " 元\n\n";
+                    individualHistory.push({
+                        date: record.date,
+                        amount: participant.amount
+                    });
+                    total += parseFloat(participant.amount);
+                }
+            });
+        });
+
+        textData += "总费用: " + total.toFixed(2) + " 元\n";
+        downloadTXT(textData, personName + "_details.txt");
+    }
+
+    // 下载 TXT 文件
+    function downloadTXT(data, filename) {
+        var blob = new Blob([data], { type: "text/plain" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+</script>
+
+</body>
+</html>
